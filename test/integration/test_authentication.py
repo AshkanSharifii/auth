@@ -143,7 +143,7 @@ async def test_user_register_user_already_exists(client, test_db):
         response = await client.post('/register', json=payload)
 
         assert response.status_code == 403
-        assert response.json() == {"detail": f"User with phone number: {payload['phone_number']} already exists"}
+        assert response.json() == {"detail": f"User with phone number: {payload["phone_number"]} already exists"}
 
     finally:
         async with test_db.session() as session:
@@ -153,7 +153,7 @@ async def test_user_register_user_already_exists(client, test_db):
             )
             await session.execute(
                 text("DELETE FROM User WHERE phone_number = :phone_number"),
-                {"phone_number": f'{payload['phone_number']}'}
+                {"phone_number": f'{payload["phone_number"]}'}
             )
             await session.commit()
 
@@ -194,7 +194,7 @@ async def test_user_register_notification_service_not_available(client, test_db,
             )
             await session.execute(
                 text("DELETE FROM User WHERE phone_number = :phone_number"),
-                {"phone_number": f'{payload['phone_number']}'}
+                {"phone_number": f'{payload["phone_number"]}'}
             )
             await session.commit()
             test_container.notify_user_provider.reset_override()
@@ -448,7 +448,7 @@ async def test_login_with_otp_existed_user(client, test_db, test_container):
         await session.commit()
 
     async with test_db.session() as session:
-        user = UserModel(phone_number=payload['phone_number'],
+        user = UserModel(phone_number=payload["phone_number"],
                            name='test-user',
                            family='test-user',
                            hashed_password=hash_password('test12345'),
@@ -472,7 +472,7 @@ async def test_login_with_otp_existed_user(client, test_db, test_container):
             )
             await session.execute(
                 text("DELETE FROM User WHERE phone_number = :phone_number"),
-                {"phone_number": f'{payload['phone_number']}'}
+                {"phone_number": f'{payload["phone_number"]}'}
             )
             await session.commit()
 
@@ -506,7 +506,7 @@ async def test_login_with_otp_existed_user_otp_already_exists(client, test_db, t
         await session.commit()
 
     async with test_db.session() as session:
-        user = UserModel(phone_number=payload['phone_number'],
+        user = UserModel(phone_number=payload["phone_number"],
                            name='test-user',
                            family='test-user',
                            hashed_password=hash_password('test12345'),
@@ -535,7 +535,7 @@ async def test_login_with_otp_existed_user_otp_already_exists(client, test_db, t
             )
             await session.execute(
                 text("DELETE FROM User WHERE phone_number = :phone_number"),
-                {"phone_number": f'{payload['phone_number']}'}
+                {"phone_number": f'{payload["phone_number"]}'}
             )
             await session.commit()
 
@@ -557,7 +557,7 @@ async def test_login_with_otp_existed_user_locked(client, test_db, test_containe
         await session.commit()
 
     async with test_db.session() as session:
-        user = UserModel(phone_number=payload['phone_number'],
+        user = UserModel(phone_number=payload["phone_number"],
                            name='test-user',
                            family='test-user',
                            hashed_password=hash_password('test12345'),
@@ -584,7 +584,7 @@ async def test_login_with_otp_existed_user_locked(client, test_db, test_containe
             )
             await session.execute(
                 text("DELETE FROM User WHERE phone_number = :phone_number"),
-                {"phone_number": f'{payload['phone_number']}'}
+                {"phone_number": f'{payload["phone_number"]}'}
             )
             await session.commit()
 
@@ -606,7 +606,7 @@ async def test_login_with_otp_notification_service_not_available(client, test_db
         await session.commit()
 
     async with test_db.session() as session:
-        user = UserModel(phone_number=payload['phone_number'],
+        user = UserModel(phone_number=payload["phone_number"],
                            name='test-user',
                            family='test-user',
                            hashed_password=hash_password('test12345'),
@@ -630,7 +630,7 @@ async def test_login_with_otp_notification_service_not_available(client, test_db
             )
             await session.execute(
                 text("DELETE FROM User WHERE phone_number = :phone_number"),
-                {"phone_number": f'{payload['phone_number']}'}
+                {"phone_number": f'{payload["phone_number"]}'}
             )
             await session.commit()
             
@@ -653,7 +653,7 @@ async def test_resend_code_exist_phone_number(client, test_db, test_container):
         await session.commit()
 
     async with test_db.session() as session:
-        user = UserModel(phone_number=payload['phone_number'],
+        user = UserModel(phone_number=payload["phone_number"],
                            name='test-user',
                            family='test-user',
                            hashed_password=hash_password('test12345'),
@@ -677,7 +677,7 @@ async def test_resend_code_exist_phone_number(client, test_db, test_container):
             )
             await session.execute(
                 text("DELETE FROM User WHERE phone_number = :phone_number"),
-                {"phone_number": f'{payload['phone_number']}'}
+                {"phone_number": f'{payload["phone_number"]}'}
             )
             await session.commit()
 
@@ -696,7 +696,7 @@ async def test_resend_code_not_exist_phone_number(client, test_container):
     response = await client.post('/code/resend', json=payload)
     assert response.status_code == 404
     assert response.json() == {
-        "detail": f"User {payload['phone_number']} not found"
+        "detail": f"User {payload["phone_number"]} not found"
     }
 
 
@@ -717,7 +717,7 @@ async def test_resend_code_exist_phone_number_otp_already_exist(client, test_db,
         await session.commit()
 
     async with test_db.session() as session:
-        user = UserModel(phone_number=payload['phone_number'],
+        user = UserModel(phone_number=payload["phone_number"],
                            name='test-user',
                            family='test-user',
                            hashed_password=hash_password('test12345'),
@@ -745,7 +745,7 @@ async def test_resend_code_exist_phone_number_otp_already_exist(client, test_db,
             )
             await session.execute(
                 text("DELETE FROM User WHERE phone_number = :phone_number"),
-                {"phone_number": f'{payload['phone_number']}'}
+                {"phone_number": f'{payload["phone_number"]}'}
             )
             await session.commit()
 
@@ -767,7 +767,7 @@ async def test_resend_code_exist_phone_number_notification_service_not_available
         await session.commit()
 
     async with test_db.session() as session:
-        user = UserModel(phone_number=payload['phone_number'],
+        user = UserModel(phone_number=payload["phone_number"],
                            name='test-user',
                            family='test-user',
                            hashed_password=hash_password('test12345'),
@@ -792,7 +792,7 @@ async def test_resend_code_exist_phone_number_notification_service_not_available
             )
             await session.execute(
                 text("DELETE FROM User WHERE phone_number = :phone_number"),
-                {"phone_number": f'{payload['phone_number']}'}
+                {"phone_number": f'{payload["phone_number"]}'}
             )
             await session.commit()
 
@@ -829,7 +829,7 @@ async def test_submit_exist_user_code_not_in_cache_client(client, test_db):
         await session.commit()
 
     async with test_db.session() as session:
-        user = UserModel(phone_number=payload['phone_number'],
+        user = UserModel(phone_number=payload["phone_number"],
                            name='test-user',
                            family='test-user',
                            hashed_password=hash_password('test12345'),
@@ -857,7 +857,7 @@ async def test_submit_exist_user_code_not_in_cache_client(client, test_db):
             )
             await session.execute(
                 text("DELETE FROM User WHERE phone_number = :phone_number"),
-                {"phone_number": f'{payload['phone_number']}'}
+                {"phone_number": f'{payload["phone_number"]}'}
             )
             await session.commit()
 
@@ -877,7 +877,7 @@ async def test_submit_exist_user_is_locked(client, test_db):
         await session.commit()
 
     async with test_db.session() as session:
-        user = UserModel(phone_number=payload['phone_number'],
+        user = UserModel(phone_number=payload["phone_number"],
                            name='test-user',
                            family='test-user',
                            hashed_password=hash_password('test12345'),
@@ -906,7 +906,7 @@ async def test_submit_exist_user_is_locked(client, test_db):
             )
             await session.execute(
                 text("DELETE FROM User WHERE phone_number = :phone_number"),
-                {"phone_number": f'{payload['phone_number']}'}
+                {"phone_number": f'{payload["phone_number"]}'}
             )
             await session.commit()
 
@@ -928,7 +928,7 @@ async def test_submit_exist_user_wrong_code(client, test_db, test_container):
         await session.commit()
 
     async with test_db.session() as session:
-        user = UserModel(phone_number=payload['phone_number'],
+        user = UserModel(phone_number=payload["phone_number"],
                            name='test-user',
                            family='test-user',
                            hashed_password=hash_password('test12345'),
@@ -963,7 +963,7 @@ async def test_submit_exist_user_wrong_code(client, test_db, test_container):
             )
             await session.execute(
                 text("DELETE FROM User WHERE phone_number = :phone_number"),
-                {"phone_number": f'{payload['phone_number']}'}
+                {"phone_number": f'{payload["phone_number"]}'}
             )
             await session.commit()
 
@@ -985,7 +985,7 @@ async def test_submit_exist_user_success(client, test_db, test_container):
         await session.commit()
 
     async with test_db.session() as session:
-        user = UserModel(phone_number=payload['phone_number'],
+        user = UserModel(phone_number=payload["phone_number"],
                            name='test-user',
                            family='test-user',
                            hashed_password=hash_password('test12345'),
@@ -1006,7 +1006,7 @@ async def test_submit_exist_user_success(client, test_db, test_container):
         assert response.status_code == 200
         assert response.json() == True
 
-        code = await redis_client.retrieve_code(payload['phone_number'])
+        code = await redis_client.retrieve_code(payload["phone_number"])
         payload.update({"code": str(code)})
 
         response = await client.post('/code/submit', json=payload)
@@ -1027,7 +1027,7 @@ async def test_submit_exist_user_success(client, test_db, test_container):
             )
             await session.execute(
                 text("DELETE FROM User WHERE phone_number = :phone_number"),
-                {"phone_number": f'{payload['phone_number']}'}
+                {"phone_number": f'{payload["phone_number"]}'}
             )
             await session.commit()
 
