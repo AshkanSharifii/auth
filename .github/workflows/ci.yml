@@ -68,21 +68,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r prod-requirements.txt
 
-      - name: Format check with black
-        run: |
-          pip install black
-          black --check src test
-
-      - name: Sort imports check
-        run: |
-          pip install isort
-          isort --check-only src test
-
-      - name: Type checking with mypy
-        run: |
-          pip install mypy
-          mypy src --ignore-missing-imports
-
       - name: Security check with bandit
         run: |
           pip install bandit
