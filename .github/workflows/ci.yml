@@ -171,9 +171,10 @@ jobs:
           flags: auth-service
           name: auth-service-coverage
 
-  # Docker Build Validation
+  # Docker Build Validation (Currently Skipped)
   docker-build:
     runs-on: ubuntu-latest
+    if: false  # Skip docker build for now as requested
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
