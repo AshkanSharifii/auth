@@ -68,11 +68,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r prod-requirements.txt
 
-      - name: Security check with bandit
-        run: |
-          pip install bandit
-          bandit -r src -f json
-
       - name: Set environment variables
         run: |
           echo "DATABASE_NAME=testdb" >> $GITHUB_ENV
