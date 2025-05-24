@@ -21,3 +21,4 @@ aiosqlite==0.21.0
 httpx==0.28.1
 aioboto3==14.3.0
 bandit>=1.7.5
+pre-commit>=3.0.0
