@@ -105,7 +105,7 @@ async def test_user_register_success(client, test_db, test_container):
             )
             await session.execute(
                 text("DELETE FROM User WHERE phone_number = :phone_number"),
-                {"phone_number": f'{payload['phone_number']}'}
+                {"phone_number": f'{payload["phone_number"]}'}
             )
             await session.commit()
             test_container.notify_user_provider.reset_override()
