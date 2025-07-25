@@ -14,6 +14,7 @@ load_dotenv()
 # ----------------------------------------------------------------------------
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(case_sensitive=True, env_file_encoding="utf-8")
+    
     # Security
     VALID_LOGIN_RETRIES: int = 3
     LOCK_USER_MINUTES: int = 10
@@ -32,6 +33,15 @@ class Settings(BaseSettings):
     TOKEN_ALGORITHM: str
     TOKEN_EXPIRE_HOURS: int
     REFRESH_TOKEN_EXPIRE_HOURS: int
+
+    # Redis Config (ADD THESE)
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_PASSWORD: str | None = None
+    REDIS_KEY_EXPIRE_SECONDS: int = 300
+
+    # Notification Service (ADD THIS)
+    NOTIFICATION_SERVICE_URL: str
 
     @field_validator("POSTGRES_DATABASE_URL", mode="after")
     def assemble_postgresql_url(cls, v: Optional[str], values: ValidationInfo):
