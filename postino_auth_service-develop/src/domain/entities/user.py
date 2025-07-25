@@ -39,7 +39,7 @@ class User(Base):
     name: str
     family: str
     hashed_password: str
-    role_id: uuid.UUID  # Keep this as UUID, not Role enum
+    role_id: uuid.UUID
     position: str
     personal_code: str
     is_verified: bool = False
