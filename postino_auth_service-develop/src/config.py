@@ -34,13 +34,13 @@ class Settings(BaseSettings):
     TOKEN_EXPIRE_HOURS: int
     REFRESH_TOKEN_EXPIRE_HOURS: int
 
-    # Redis Config (ADD THESE)
+    # Redis Config (ADDED)
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
     REDIS_PASSWORD: str | None = None
     REDIS_KEY_EXPIRE_SECONDS: int = 300
 
-    # Notification Service (ADD THIS)
+    # Notification Service (ADDED)
     NOTIFICATION_SERVICE_URL: str
 
     @field_validator("POSTGRES_DATABASE_URL", mode="after")
