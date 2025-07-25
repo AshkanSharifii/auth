@@ -20,3 +20,4 @@ aiofile==3.9.0
 aiosqlite==0.21.0
 httpx==0.28.1
 aioboto3==14.3.0
+email-validator==2.1.1
