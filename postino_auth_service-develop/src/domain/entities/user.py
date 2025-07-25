@@ -5,18 +5,6 @@ from dataclasses import (dataclass, field)
 from src.domain.entities.base import Base
 
 
-# Import your Role enum
-class Role:
-    """Placeholder - replace with your actual Role enum import"""
-    super_admin = "super_admin"
-    admin = "admin"
-    manager = "manager"
-    expert = "expert"
-    employee = "employee"
-    user = "user"
-    guest = "guest"
-
-
 # ----------------------------------------------------------------------------
 @dataclass
 class User(Base):
@@ -32,7 +20,7 @@ class User(Base):
         name (str): User's first name.
         family (str): User's last name or surname.
         hashed_password (str): Hashed password for authentication.
-        role (Role): User's role in the system.
+        role_id (uuid.UUID): Unique identifier for the user's role or permissions group.
         position (str): User's job position/title.
         personal_code (str): Unique personal identifier.
         is_verified (bool): Whether the user's account is verified.
@@ -51,7 +39,7 @@ class User(Base):
     name: str
     family: str
     hashed_password: str
-    role: Role
+    role_id: uuid.UUID  # Keep this as UUID, not Role enum
     position: str
     personal_code: str
     is_verified: bool = False
