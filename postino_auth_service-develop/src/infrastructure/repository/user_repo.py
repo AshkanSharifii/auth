@@ -47,7 +47,7 @@ class UserRepository(IUserRepository):
             name=user_model.name,
             family=user_model.family,
             hashed_password=user_model.hashed_password,
-            role_id=user_model.role_id,
+            role_id=user_model.role_id,  # CORRECT: Maps to role_id UUID field
             position=user_model.position,
             personal_code=user_model.personal_code,
             is_verified=user_model.is_verified,
