@@ -1,17 +1,21 @@
 from dependency_injector.wiring import Provide, inject
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security.oauth2 import OAuth2PasswordRequestForm
-from pydantic import BaseModel, EmailStr
-from typing import Optional
 
 from src.application.dtos.access_token_dto import AccessTokenDTO
 from src.application.dtos.refresh_token_dto import RefreshTokenDTO, RefreshTokenOutDTO
-from src.application.dtos.user_dto import RegisterUserDTO, SubmitCodeDTO, UserBaseDTO
+from src.application.dtos.user_dto import (
+    RegisterUserDTO,
+    SubmitCodeDTO,
+    UserBaseDTO,
+    EmailOTPRequestDTO,
+    EmailOTPVerifyDTO,
+    LoginDTO
+)
 from src.application.dtos.admin_dtos import (
     EmailVerificationDTO,
     AdminActionResponseDTO,
-    PhoneVerificationDTO,
-    SubmitPhoneVerificationDTO
+    EmailVerificationSubmitDTO
 )
 from src.application.use_cases.login_with_password_use_case import LoginWithPasswordUseCase
 from src.application.use_cases.otp_login_use_case import OTPLoginUseCase
@@ -20,11 +24,6 @@ from src.application.use_cases.register_user_use_case import RegisterUserUseCase
 from src.application.use_cases.resend_code_use_case import ResendCodeUseCase
 from src.application.use_cases.submit_verification_code_use_case import (
     SubmitVerificationCodeUseCase,
-)
-from src.application.use_cases.confirm_email_use_case import ConfirmEmailUseCase
-from src.application.use_cases.confirm_phone_use_case import (
-    ConfirmPhoneUseCase,
-    SubmitPhoneVerificationUseCase
 )
 from src.di.container import Container
 from src.domain.exceptions import (
@@ -45,79 +44,30 @@ from src.domain.exceptions import (
 router = APIRouter()
 
 
-# NEW DTOs for flexible login and OTP
-class FlexibleLoginRequestDTO(BaseModel):
-    identifier: str  # email, phone, or personal_code
-    password: Optional[str] = None
-    send_otp: bool = False
+# ============================================================================
+# PASSWORD AUTHENTICATION
+# ============================================================================
 
-
-class OTPRequestDTO(BaseModel):
-    identifier: str  # email or phone number
-
-
-class OTPVerificationDTO(BaseModel):
-    identifier: str  # email or phone number
-    code: str
-
-
-class OTPVerifyRequestDTO(BaseModel):
-    identifier: str  # email, phone, or personal_code
-    otp: str
-
-
-# ----------------------------------------------------------------------------
 @router.post("/login/password", status_code=status.HTTP_200_OK, response_model=AccessTokenDTO)
 @inject
-async def user_login_password(
+async def login_with_password(
         *,
         login_password_use_case: LoginWithPasswordUseCase = Depends(
             Provide[Container.login_with_password_use_case_provider]
         ),
-        login_password_dto: OAuth2PasswordRequestForm = Depends()
+        login_data: OAuth2PasswordRequestForm = Depends()
 ):
     """
-    User login with password (username can be email, phone, or personal code).
+    Login with email and password.
+
+    Username field should contain the email address.
     """
     try:
         response = await login_password_use_case.execute(
-            identifier=login_password_dto.username, password=login_password_dto.password
+            email=login_data.username,
+            password=login_data.password
         )
         return response
-    except UserNotFound as not_found:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(not_found))
-    except NotVerifiedUser as not_verified:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(not_verified))
-    except UserIsLocked as is_locked:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(is_locked))
-    except CredentialError as credential_error:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(credential_error))
-
-
-# ----------------------------------------------------------------------------
-@router.post("/login/flexible", status_code=status.HTTP_200_OK)
-@inject
-async def flexible_login(
-        *,
-        login_password_use_case: LoginWithPasswordUseCase = Depends(
-            Provide[Container.login_with_password_use_case_provider]
-        ),
-        login_dto: FlexibleLoginRequestDTO
-):
-    """
-    Flexible login endpoint:
-    1. identifier + password = Direct login with tokens
-    2. identifier + send_otp=true = Send OTP
-    3. identifier only (no password) = Send OTP
-    """
-    try:
-        response = await login_password_use_case.execute(
-            identifier=login_dto.identifier,
-            password=login_dto.password,
-            send_otp=login_dto.send_otp
-        )
-        return response
-
     except UserNotFound as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except NotVerifiedUser as e:
@@ -125,187 +75,119 @@ async def flexible_login(
     except UserIsLocked as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
     except CredentialError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except VerificationCodeExist as e:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(e))
-    except NotifyUserError as e:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
 
 
-# ----------------------------------------------------------------------------
-@router.post("/login/verify-otp", status_code=status.HTTP_200_OK, response_model=AccessTokenDTO)
+@router.post("/login", status_code=status.HTTP_200_OK, response_model=AccessTokenDTO)
 @inject
-async def verify_login_otp(
+async def login_with_email_password(
         *,
         login_password_use_case: LoginWithPasswordUseCase = Depends(
             Provide[Container.login_with_password_use_case_provider]
         ),
-        otp_dto: OTPVerifyRequestDTO
+        login_data: LoginDTO
 ):
     """
-    Verify OTP for flexible login and get access tokens
+    Alternative login endpoint with email and password.
     """
     try:
-        response = await login_password_use_case.verify_login_otp(
-            identifier=otp_dto.identifier,
-            otp=otp_dto.otp
+        response = await login_password_use_case.execute(
+            email=login_data.email,
+            password=login_data.password
         )
         return response
-
     except UserNotFound as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except NotVerifiedUser as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+    except UserIsLocked as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
     except CredentialError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
 
 
-# ----------------------------------------------------------------------------
-@router.post("/login/otp", status_code=status.HTTP_200_OK)
-@inject
-async def user_login_otp(
-        *,
-        otp_login_use_case: OTPLoginUseCase = Depends(Provide[Container.otp_login_use_case_provider]),
-        otp_login_dto: UserBaseDTO
-):
-    """
-    Initiate OTP login by sending verification code to phone number.
-    """
-    try:
-        response = await otp_login_use_case.execute_phone_otp(phone_number=otp_login_dto.phone_number)
-        return response
-    except UserNotFound as not_found:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(not_found))
-    except VerificationCodeExist as verification_code_exist:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail=str(verification_code_exist)
-        )
-    except UserIsLocked as is_locked:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(is_locked))
-    except NotifyUserError as notification_service_error:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(notification_service_error)
-        )
+# ============================================================================
+# EMAIL OTP AUTHENTICATION
+# ============================================================================
 
-
-# ----------------------------------------------------------------------------
 @router.post("/otp/send", status_code=status.HTTP_200_OK)
-@inject
-async def send_otp(
-        *,
-        otp_login_use_case: OTPLoginUseCase = Depends(Provide[Container.otp_login_use_case_provider]),
-        otp_request: OTPRequestDTO
-):
-    """
-    Send OTP to email or phone number.
-    Auto-detects if identifier is email or phone.
-    """
-    try:
-        response = await otp_login_use_case.execute(identifier=otp_request.identifier)
-        return response
-    except UserNotFound as not_found:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(not_found))
-    except VerificationCodeExist as verification_code_exist:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail=str(verification_code_exist)
-        )
-    except UserIsLocked as is_locked:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(is_locked))
-    except NotifyUserError as notification_service_error:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(notification_service_error)
-        )
-
-
-# ----------------------------------------------------------------------------
-@router.post("/otp/send/email", status_code=status.HTTP_200_OK)
 @inject
 async def send_email_otp(
         *,
         otp_login_use_case: OTPLoginUseCase = Depends(Provide[Container.otp_login_use_case_provider]),
-        email: EmailStr
+        request: EmailOTPRequestDTO
 ):
     """
-    Send OTP specifically to email address.
+    Send OTP to email address for authentication.
     """
     try:
-        response = await otp_login_use_case.execute_email_otp(email=email)
+        response = await otp_login_use_case.execute(email=request.email)
         return response
-    except UserNotFound as not_found:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(not_found))
-    except VerificationCodeExist as verification_code_exist:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail=str(verification_code_exist)
-        )
-    except UserIsLocked as is_locked:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(is_locked))
-    except NotifyUserError as notification_service_error:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(notification_service_error)
-        )
+    except UserNotFound as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except VerificationCodeExist as e:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(e))
+    except UserIsLocked as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+    except NotifyUserError as e:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
 
 
-# ----------------------------------------------------------------------------
-@router.post("/otp/send/phone", status_code=status.HTTP_200_OK)
-@inject
-async def send_phone_otp(
-        *,
-        otp_login_use_case: OTPLoginUseCase = Depends(Provide[Container.otp_login_use_case_provider]),
-        phone_number: str
-):
-    """
-    Send OTP specifically to phone number.
-    """
-    try:
-        response = await otp_login_use_case.execute_phone_otp(phone_number=phone_number)
-        return response
-    except UserNotFound as not_found:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(not_found))
-    except VerificationCodeExist as verification_code_exist:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail=str(verification_code_exist)
-        )
-    except UserIsLocked as is_locked:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(is_locked))
-    except NotifyUserError as notification_service_error:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(notification_service_error)
-        )
-
-
-# ----------------------------------------------------------------------------
 @router.post("/otp/verify", response_model=AccessTokenDTO, status_code=status.HTTP_200_OK)
 @inject
-async def verify_otp(
+async def verify_email_otp(
         *,
         submit_code_use_case: SubmitVerificationCodeUseCase = Depends(
             Provide[Container.submit_verification_code_use_case_provider]
         ),
-        otp_verification: OTPVerificationDTO
+        otp_data: EmailOTPVerifyDTO
 ):
     """
-    Verify OTP for email or phone and get access tokens.
-    Auto-detects if identifier is email or phone.
+    Verify email OTP and get authentication tokens.
     """
     try:
         response = await submit_code_use_case.execute(
-            identifier=otp_verification.identifier,
-            code=otp_verification.code
+            email=otp_data.email,
+            code=otp_data.code
         )
         return response
-    except UserIsLocked as is_locked:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(is_locked))
-    except VerificationCodeExpired as verification_code_expired:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail=str(verification_code_expired)
-        )
-    except IncorrectVerificationCode as incorrect_verification_code:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail=str(incorrect_verification_code)
-        )
-    except UserNotFound as user_not_found:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(user_not_found))
+    except UserIsLocked as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+    except VerificationCodeExpired as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+    except IncorrectVerificationCode as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+    except UserNotFound as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
-# ----------------------------------------------------------------------------
+@router.post("/otp/resend", status_code=status.HTTP_200_OK)
+@inject
+async def resend_email_otp(
+        *,
+        resend_code_use_case: ResendCodeUseCase = Depends(
+            Provide[Container.resend_code_use_case_provider]
+        ),
+        request: EmailOTPRequestDTO
+):
+    """
+    Resend OTP to email address.
+    """
+    try:
+        response = await resend_code_use_case.execute_email_otp(email=request.email)
+        return response
+    except VerificationCodeExist as e:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(e))
+    except NotifyUserError as e:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
+    except UserNotFound as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+# ============================================================================
+# USER REGISTRATION
+# ============================================================================
+
 @router.post("/register", response_model=UserBaseDTO, status_code=status.HTTP_201_CREATED)
 @inject
 async def register_user(
@@ -313,91 +195,91 @@ async def register_user(
         register_user_use_case: RegisterUserUseCase = Depends(
             Provide[Container.register_user_use_case_provider]
         ),
-        register_user_dto: RegisterUserDTO
+        register_data: RegisterUserDTO
 ):
     """
     Register a new user account.
+
+    Phone number is optional (for contact purposes only).
+    Email verification code will be sent automatically.
     """
     try:
         response = await register_user_use_case.execute(
-            phone_number=register_user_dto.phone_number,
-            email=register_user_dto.email,
-            name=register_user_dto.name,
-            family=register_user_dto.family,
-            position=register_user_dto.position,
-            personal_code=register_user_dto.personal_code,
-            password=register_user_dto.password,
+            email=register_data.email,
+            name=register_data.name,
+            family=register_data.family,
+            position=register_data.position,
+            personal_code=register_data.personal_code,
+            password=register_data.password,
+            phone_number=register_data.phone_number,
         )
         return response
-    except UserExist as user_exist:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(user_exist))
-    except NotifyUserError as not_verified:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(not_verified)
-        )
+    except UserExist as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    except NotifyUserError as e:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
 
 
-# ----------------------------------------------------------------------------
-@router.post("/code/submit", response_model=AccessTokenDTO, status_code=status.HTTP_200_OK)
+# ============================================================================
+# EMAIL VERIFICATION (REGISTRATION)
+# ============================================================================
+
+@router.post("/email/verify", status_code=status.HTTP_200_OK, response_model=AdminActionResponseDTO)
 @inject
-async def submit_code(
+async def verify_email_for_registration(
         *,
         submit_code_use_case: SubmitVerificationCodeUseCase = Depends(
             Provide[Container.submit_verification_code_use_case_provider]
         ),
-        submit_code_dto: SubmitCodeDTO
+        verification_data: EmailVerificationSubmitDTO
 ):
     """
-    Submit verification code for phone number verification and login.
+    Verify email address with verification code (for registration).
     """
     try:
-        response = await submit_code_use_case.execute_phone_verification(
-            phone_number=submit_code_dto.phone_number, code=submit_code_dto.code
+        response = await submit_code_use_case.execute_registration_verification(
+            email=verification_data.email,
+            code=verification_data.code
         )
-        return response
-    except UserIsLocked as is_locked:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(is_locked))
-    except VerificationCodeExpired as verification_code_expired:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail=str(verification_code_expired)
+        return AdminActionResponseDTO(
+            success=True,
+            message="Email address verified successfully"
         )
-    except IncorrectVerificationCode as incorrect_verification_code:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail=str(incorrect_verification_code)
-        )
-    except UserNotFound as user_not_found:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(user_not_found))
+    except UserNotFound as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except VerificationCodeExpired as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+    except IncorrectVerificationCode as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
 
 
-# ----------------------------------------------------------------------------
-@router.post("/code/resend", status_code=status.HTTP_200_OK)
+@router.post("/email/resend", status_code=status.HTTP_200_OK)
 @inject
-async def resend_code(
+async def resend_email_verification(
         *,
         resend_code_use_case: ResendCodeUseCase = Depends(
             Provide[Container.resend_code_use_case_provider]
         ),
-        resend_code_dto: UserBaseDTO
+        request: EmailOTPRequestDTO
 ):
     """
-    Resend verification code to phone number.
+    Resend email verification code (for registration).
     """
     try:
-        response = await resend_code_use_case.execute(phone_number=resend_code_dto.phone_number)
+        response = await resend_code_use_case.execute_email_verification(email=request.email)
         return response
-    except VerificationCodeExist as verification_code_exist:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail=str(verification_code_exist)
-        )
-    except NotifyUserError as notify_error:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(notify_error)
-        )
-    except UserNotFound as not_found:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(not_found))
+    except VerificationCodeExist as e:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(e))
+    except NotifyUserError as e:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
+    except UserNotFound as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
-# ----------------------------------------------------------------------------
+# ============================================================================
+# TOKEN REFRESH
+# ============================================================================
+
 @router.post("/refresh", response_model=RefreshTokenOutDTO, status_code=status.HTTP_200_OK)
 @inject
 async def refresh_token(
@@ -410,93 +292,42 @@ async def refresh_token(
     try:
         access_token = await refresh.execute(refresh_token=refresh_token_dto.refresh_token)
         return access_token
-    except ExpRefreshToken as exp:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exp))
-    except UserNotFound as user_not_found:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(user_not_found))
-    except InvalidRefreshToken as invalid_refresh:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(invalid_refresh))
-
-
-# ----------------------------------------------------------------------------
-@router.post("/email/verify", status_code=status.HTTP_200_OK, response_model=AdminActionResponseDTO)
-@inject
-async def verify_user_email(
-        *,
-        confirm_email_use_case: ConfirmEmailUseCase = Depends(
-            Provide[Container.confirm_email_use_case_provider]
-        ),
-        email_dto: EmailVerificationDTO
-):
-    """
-    Send email verification code to user for email confirmation.
-    """
-    try:
-        response = await confirm_email_use_case.execute(email=email_dto.email)
-        return AdminActionResponseDTO(
-            success=True,
-            message="Email verification code sent successfully"
-        )
+    except ExpRefreshToken as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     except UserNotFound as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except VerificationCodeExist as e:
+    except InvalidRefreshToken as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+
+
+# ============================================================================
+# LEGACY/DEPRECATED ENDPOINTS (for backward compatibility)
+# ============================================================================
+
+@router.post("/code/submit", response_model=AccessTokenDTO, status_code=status.HTTP_200_OK)
+@inject
+async def submit_code_legacy(
+        *,
+        submit_code_use_case: SubmitVerificationCodeUseCase = Depends(
+            Provide[Container.submit_verification_code_use_case_provider]
+        ),
+        submit_code_dto: SubmitCodeDTO
+):
+    """
+    LEGACY: Submit verification code for email verification and login.
+    Use /otp/verify instead.
+    """
+    try:
+        response = await submit_code_use_case.execute(
+            email=submit_code_dto.email,
+            code=submit_code_dto.code
+        )
+        return response
+    except UserIsLocked as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
-    except NotifyUserError as e:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
-
-
-# ----------------------------------------------------------------------------
-@router.post("/phone/verify", status_code=status.HTTP_200_OK, response_model=AdminActionResponseDTO)
-@inject
-async def verify_user_phone(
-        *,
-        confirm_phone_use_case: ConfirmPhoneUseCase = Depends(
-            Provide[Container.confirm_phone_use_case_provider]
-        ),
-        phone_dto: PhoneVerificationDTO
-):
-    """
-    Send phone verification code to user for phone confirmation.
-    """
-    try:
-        response = await confirm_phone_use_case.execute(phone_number=phone_dto.phone_number)
-        return AdminActionResponseDTO(
-            success=True,
-            message="Phone verification code sent successfully"
-        )
-    except UserNotFound as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except VerificationCodeExist as e:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
-    except NotifyUserError as e:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
-
-
-# ----------------------------------------------------------------------------
-@router.post("/phone/confirm", status_code=status.HTTP_200_OK, response_model=AdminActionResponseDTO)
-@inject
-async def confirm_phone_verification(
-        *,
-        submit_phone_verification_use_case: SubmitPhoneVerificationUseCase = Depends(
-            Provide[Container.submit_phone_verification_use_case_provider]
-        ),
-        phone_dto: SubmitPhoneVerificationDTO
-):
-    """
-    Confirm phone number with verification code.
-    """
-    try:
-        response = await submit_phone_verification_use_case.execute(
-            phone_number=phone_dto.phone_number,
-            code=phone_dto.code
-        )
-        return AdminActionResponseDTO(
-            success=True,
-            message="Phone number verified successfully"
-        )
-    except UserNotFound as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except VerificationCodeExpired as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
     except IncorrectVerificationCode as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+    except UserNotFound as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

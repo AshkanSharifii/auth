@@ -12,7 +12,7 @@ from src.application.dtos.admin_dtos import (
     LoginHistoryListDTO,
     LoginHistoryDTO
 )
-from src.application.use_cases.confirm_email_use_case import ConfirmEmailUseCase
+from src.application.use_cases.otp_login_use_case import OTPLoginUseCase
 from src.application.use_cases.admin_use_cases import (
     ConfirmUserBySuperAdminUseCase,
     ActivateUserBySuperAdminUseCase,
@@ -35,12 +35,12 @@ router = APIRouter()
 
 
 # ----------------------------------------------------------------------------
-@router.post("/confirm-email", status_code=status.HTTP_200_OK, response_model=AdminActionResponseDTO)
+@router.post("/email/send-verification", status_code=status.HTTP_200_OK, response_model=AdminActionResponseDTO)
 @inject
-async def confirm_user_email(
+async def send_email_verification(
         *,
-        confirm_email_use_case: ConfirmEmailUseCase = Depends(
-            Provide[Container.confirm_email_use_case_provider]
+        otp_login_use_case: OTPLoginUseCase = Depends(
+            Provide[Container.otp_login_use_case_provider]
         ),
         email_dto: EmailVerificationDTO,
         admin_data: tuple = Depends(get_current_super_admin_user)
@@ -50,7 +50,7 @@ async def confirm_user_email(
     """
     try:
         admin_user, admin_role = admin_data
-        response = await confirm_email_use_case.execute(email=email_dto.email)
+        response = await otp_login_use_case.execute(email=email_dto.email)
         return AdminActionResponseDTO(
             success=True,
             message="Email verification code sent successfully"
@@ -144,8 +144,8 @@ async def get_all_users(
         users_dto = []
         for user, role in user_role_pairs:
             user_dto = UserWithRoleDTO(
-                phone_number=user.phone_number,
                 email=user.email,
+                phone_number=user.phone_number,  # Optional field
                 name=user.name,
                 family=user.family,
                 position=user.position,
@@ -194,8 +194,8 @@ async def get_specific_user(
         )
 
         return UserWithRoleDTO(
-            phone_number=user.phone_number,
             email=user.email,
+            phone_number=user.phone_number,  # Optional field
             name=user.name,
             family=user.family,
             position=user.position,

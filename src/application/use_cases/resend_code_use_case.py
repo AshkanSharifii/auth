@@ -8,61 +8,96 @@ from src.ports.repositories.user_repo import IUserRepository
 # ----------------------------------------------------------------------------
 class ResendCodeUseCase:
     """
-    Use case for resending a verification code to a user via SMS.
+    Use case for resending verification codes via email.
 
-    This use case retrieves the user by their phone number, checks if a verification
-    code already exists in the cache, and if not, generates a new code, sends it via
-    the notification service, and stores it in the cache.
-
-    Dependencies:
-        - IUserRepository: Interface to access user data.
-        - ICacheClient: Interface to interact with the cache storage.
-        - INotifyUser: Interface to send messages to users via a specific channel (e.g., SMS).
-
-    Raises:
-        UserNotFound: If the user does not exist in the repository.
-        VerificationCodeExist: If a valid verification code already exists in the cache.
-        Exception: For any other unexpected errors.
+    Simplified for email-only verification system.
     """
 
     def __init__(
-        self, user_repo: IUserRepository, cache_client: ICacheClient, notify_user: INotifyUser
+            self, user_repo: IUserRepository, cache_client: ICacheClient, notify_user: INotifyUser
     ):
         self._user_repo = user_repo
         self._cache_client = cache_client
         self._notify_user = notify_user
 
-    async def execute(self, phone_number: str) -> bool:
+    async def execute_email_otp(self, email: str) -> dict:
         """
-        Resends a verification code to the user associated with the given phone number.
+        Resend OTP for email login.
 
         Args:
-            phone_number (str): The user's phone number.
+            email (str): The user's email address.
 
         Returns:
-            bool: True if the code was successfully sent and stored, False otherwise.
+            dict: Success response with details.
 
         Raises:
-            UserNotFound: If no user is found with the given phone number.
-            VerificationCodeExist: If a verification code is already cached.
-            Exception: If any error occurs during the process.
+            UserNotFound: If no user found with the email.
+            VerificationCodeExist: If a verification code already exists.
+            NotifyUserError: If email sending fails.
         """
         try:
-            user = await self._user_repo.get_by_phone_number(phone_number=phone_number)
+            user = await self._user_repo.get_by_email(email=email)
             if not user:
-                raise UserNotFound(f"User {phone_number} not found")
+                raise UserNotFound(f"User with email {email} not found")
 
-            # Check code exists
-            code_exist = await self._cache_client.retrieve_code(key=phone_number)
+            # Check if OTP already exists
+            cache_key = f"email_otp_{email}"
+            code_exist = await self._cache_client.retrieve_code(key=cache_key)
             if code_exist:
-                raise VerificationCodeExist("Verification code already exist")
+                raise VerificationCodeExist("OTP already exists. Please wait before requesting a new one.")
 
+            # Generate and send new OTP
             code = generate_verification_code()
-            response = await self._notify_user.send_request(phone_number=phone_number, otp=code)
+            response = await self._notify_user.send_email_otp(email=email, otp=code)
+
             if response.status_code == 200:
-                await self._cache_client.store_code(key=phone_number, value=code)
-                return True
+                await self._cache_client.store_code(key=cache_key, value=code)
+                return {
+                    "success": True,
+                    "message": f"OTP resent to email {email}",
+                    "method": "email",
+                    "email": email
+                }
             else:
-                raise NotifyUserError("Something went wrong")
+                raise NotifyUserError("Failed to send email OTP")
+        except Exception as e:
+            raise e
+
+    async def execute_email_verification(self, email: str) -> dict:
+        """
+        Resend verification code for email verification (registration).
+
+        Args:
+            email (str): The user's email address.
+
+        Returns:
+            dict: Success response with details.
+        """
+        try:
+            user = await self._user_repo.get_by_email(email=email)
+            if not user:
+                raise UserNotFound(f"User with email {email} not found")
+
+            # Check if verification code already exists
+            cache_key = f"email_verification_{email}"
+            code_exist = await self._cache_client.retrieve_code(key=cache_key)
+            if code_exist:
+                raise VerificationCodeExist(
+                    "Verification code already exists. Please wait before requesting a new one.")
+
+            # Generate and send new verification code
+            code = generate_verification_code()
+            response = await self._notify_user.send_email_otp(email=email, otp=code)
+
+            if response.status_code == 200:
+                await self._cache_client.store_code(key=cache_key, value=code)
+                return {
+                    "success": True,
+                    "message": f"Verification code resent to email {email}",
+                    "method": "email",
+                    "email": email
+                }
+            else:
+                raise NotifyUserError("Failed to send verification email")
         except Exception as e:
             raise e

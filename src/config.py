@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         case_sensitive=True,
         env_file_encoding="utf-8",
-        extra="ignore"  # This allows extra fields like APP_ENV
+        extra="ignore"
     )
 
     # Security
@@ -38,14 +38,17 @@ class Settings(BaseSettings):
     TOKEN_EXPIRE_HOURS: int
     REFRESH_TOKEN_EXPIRE_HOURS: int
 
-    # Redis Config (NEEDED FOR VERIFICATION CODES)
+    # Redis Config (for verification codes)
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
     REDIS_PASSWORD: str | None = None
     REDIS_KEY_EXPIRE_SECONDS: int = 300
 
-    # Notification Service (NEEDED FOR SMS/EMAIL)
+    # Email Notification Service
     NOTIFICATION_SERVICE_URL: str
+    EMAIL_SERVICE_TIMEOUT: int = 30
+    EMAIL_FROM_ADDRESS: str = "noreply@postino.com"
+    EMAIL_FROM_NAME: str = "Postino Authentication"
 
     @field_validator("POSTGRES_DATABASE_URL", mode="after")
     def assemble_postgresql_url(cls, v: Optional[str], values: ValidationInfo):

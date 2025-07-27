@@ -10,54 +10,60 @@ from src.domain.interfaces.notify_user import INotifyUser
 # ----------------------------------------------------------------------------
 class AsyncNotifyUser(INotifyUser):
     """
-    Asynchronous implementation of the INotifyUser interface using HTTPX.
+    Email-only implementation of the INotifyUser interface.
 
-    This class sends notifications to users via an external notification service.
-    It supports different channels such as SMS, email, or others as configured.
-
-    Attributes:
-        __api_key (str): API key used to authenticate with the notification service.
-        __notification_service_url (str): Base URL of the notification service endpoint.
+    This class sends email notifications to users via an external notification service.
+    Simplified for email-only OTP delivery system.
     """
 
     def __init__(self):
         self.__notification_service_url = settings.NOTIFICATION_SERVICE_URL
 
     @override
-    async def send_request(self, phone_number: str, otp: str):
+    async def send_email_otp(self, email: str, otp: str):
         """
-        Sends a notification request to the external notification service.
+        Sends an OTP code via email to the specified email address.
 
         Args:
-            recipient (str): The recipient identifier (e.g., phone number or email).
-            message (str): The content of the message to send.
-            channel (str): The channel through which the message should be sent (e.g., 'sms').
+            email (str): The recipient's email address.
+            otp (str): The OTP code to send.
 
         Returns:
-            httpx.Response: The HTTP response returned by the notification service.
+            httpx.Response: The HTTP response returned by the email service.
 
         Raises:
             NotifyUserError: If there is a network error, a non-successful HTTP status,
                              or any unexpected issue during the request.
         """
         payload = {
-            "phone_number": phone_number,
+            "email": email,
             "otp": otp,
+            "subject": "Your Verification Code - Postino",
+            "template": "otp_verification",
+            "sender_name": settings.EMAIL_FROM_NAME,
+            "sender_email": settings.EMAIL_FROM_ADDRESS
         }
+
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=settings.EMAIL_SERVICE_TIMEOUT) as client:
                 response = await client.post(
-                    f"{self.__notification_service_url}/sms/send/otp", json=payload
+                    f"{self.__notification_service_url}/email/send/otp",
+                    json=payload,
+                    headers={
+                        "Content-Type": "application/json",
+                        "User-Agent": "Postino-Auth-Service/1.0"
+                    }
                 )
                 # Check for HTTP errors (4xx, 5xx)
                 response.raise_for_status()
                 return response
+
         except httpx.RequestError as e:
             # Catch network-related errors (e.g., connection issues, timeouts)
-            raise NotifyUserError(f"An error occurred while sending the notification: {str(e)}")
+            raise NotifyUserError(f"Network error while sending email notification: {str(e)}")
         except httpx.HTTPStatusError as e:
             # Catch HTTP errors (non-2xx responses)
-            raise NotifyUserError(f"Notification service returned an error: {str(e)}")
+            raise NotifyUserError(f"Email service returned an error: HTTP {e.response.status_code}")
         except Exception as e:
             # Catch any other unexpected errors
-            raise NotifyUserError(f"Unexpected error occurred: {str(e)}")
+            raise NotifyUserError(f"Unexpected error occurred while sending email: {str(e)}")

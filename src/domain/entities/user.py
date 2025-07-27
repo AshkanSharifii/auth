@@ -10,31 +10,31 @@ from src.domain.entities.base import Base
 class User(Base):
     """
     Domain entity representing a user within the application.
+    Simplified for email-only authentication system.
 
     Inherits from:
         Base: Provides utility methods like `from_dict` and `to_dict`.
 
     Attributes:
-        phone_number (str): User's phone number used for identification and auth.
-        email (str): User's email address.
+        email (str): User's email address (primary identifier and authentication method).
         name (str): User's first name.
         family (str): User's last name or surname.
         hashed_password (str): Hashed password for authentication.
         role_id (uuid.UUID): Unique identifier for the user's role or permissions group.
         position (str): User's job position/title.
         personal_code (str): Unique personal identifier.
+        phone_number (str | None): User's phone number (optional, for contact only).
         is_verified (bool): Whether the user's account is verified.
         email_verified (bool): Whether the email is verified.
-        phone_number_verified (bool): Whether the phone number is verified.
-        latest_login (datetime | None): Datetime of the user's most recent auth. Optional.
+        phone_number_verified (bool): Whether the phone number is verified (optional).
+        latest_login (datetime | None): Datetime of the user's most recent auth.
         login_retries (bool): Whether user has failed login attempts.
-        lock_expire_time (datetime | None): When the lock on the account will expire. Optional.
+        lock_expire_time (datetime | None): When the lock on the account will expire.
         is_locked (bool): Whether the user's account is currently locked.
         is_active (bool): Whether the user's account is active.
         id (uuid.UUID): Unique user identifier. Automatically generated if not provided.
     """
 
-    phone_number: str
     email: str
     name: str
     family: str
@@ -42,6 +42,7 @@ class User(Base):
     role_id: uuid.UUID
     position: str
     personal_code: str
+    phone_number: str | None = None
     is_verified: bool = False
     email_verified: bool = False
     phone_number_verified: bool = False

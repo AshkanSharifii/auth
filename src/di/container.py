@@ -9,17 +9,12 @@ from src.application.use_cases.resend_code_use_case import ResendCodeUseCase
 from src.application.use_cases.submit_verification_code_use_case import (
     SubmitVerificationCodeUseCase,
 )
-from src.application.use_cases.confirm_email_use_case import ConfirmEmailUseCase
 from src.application.use_cases.admin_use_cases import (
     ConfirmUserBySuperAdminUseCase,
     ActivateUserBySuperAdminUseCase,
     GetAllUsersUseCase,
     GetSpecificUserUseCase,
     AssignRoleToUserUseCase
-)
-from src.application.use_cases.confirm_phone_use_case import (
-    ConfirmPhoneUseCase,
-    SubmitPhoneVerificationUseCase
 )
 from src.application.use_cases.login_history_use_case import (
     RecordLoginHistoryUseCase,
@@ -39,7 +34,8 @@ from src.infrastructure.repository.login_history_repo import LoginHistoryReposit
 # ----------------------------------------------------------------------------
 class Container(containers.DeclarativeContainer):
     """
-    Complete dependency injection container with all features including flexible login.
+    Complete dependency injection container for email-only authentication system.
+    Includes all use cases with full functionality.
     """
 
     wiring_config = containers.WiringConfiguration(
@@ -78,17 +74,17 @@ class Container(containers.DeclarativeContainer):
         cache_client=cache_client_provider,
     )
 
-    # UPDATED: Login with password now supports flexible login and OTP
+    # Login with password use case (includes flexible login and OTP verification)
     login_with_password_use_case_provider = providers.Factory(
         LoginWithPasswordUseCase,
         user_repo=user_repository_provider,
         access_token=access_token_provider,
         role_repo=role_repository_provider,
-        cache_client=cache_client_provider,  # ADDED for OTP functionality
-        notify_user=notify_user_provider,  # ADDED for OTP functionality
+        cache_client=cache_client_provider,
+        notify_user=notify_user_provider,
     )
 
-    # OTP login use case (supports both email and phone OTP)
+    # Email OTP login use case
     otp_login_use_case_provider = providers.Factory(
         OTPLoginUseCase,
         user_repo=user_repository_provider,
@@ -96,7 +92,7 @@ class Container(containers.DeclarativeContainer):
         notify_user=notify_user_provider,
     )
 
-    # Submit verification code (supports both email and phone verification)
+    # Submit verification code (supports multiple verification types)
     submit_verification_code_use_case_provider = providers.Factory(
         SubmitVerificationCodeUseCase,
         user_repo=user_repository_provider,
@@ -105,6 +101,7 @@ class Container(containers.DeclarativeContainer):
         cache_client=cache_client_provider,
     )
 
+    # Resend code use case
     resend_code_use_case_provider = providers.Factory(
         ResendCodeUseCase,
         user_repo=user_repository_provider,
@@ -112,6 +109,7 @@ class Container(containers.DeclarativeContainer):
         notify_user=notify_user_provider,
     )
 
+    # Get current user use case
     get_current_user_use_case = providers.Factory(
         GetCurrentUserUseCase,
         user_repo=user_repository_provider,
@@ -119,33 +117,12 @@ class Container(containers.DeclarativeContainer):
         access_token=access_token_provider,
     )
 
+    # Refresh token use case
     refresh_token_use_case_provider = providers.Factory(
         RefreshTokenUseCase,
         user_repo=user_repository_provider,
         access_token=access_token_provider,
         role_repo=role_repository_provider,
-    )
-
-    # Email verification use cases
-    confirm_email_use_case_provider = providers.Factory(
-        ConfirmEmailUseCase,
-        user_repo=user_repository_provider,
-        cache_client=cache_client_provider,
-        notify_user=notify_user_provider,
-    )
-
-    # Phone verification use cases
-    confirm_phone_use_case_provider = providers.Factory(
-        ConfirmPhoneUseCase,
-        user_repo=user_repository_provider,
-        cache_client=cache_client_provider,
-        notify_user=notify_user_provider,
-    )
-
-    submit_phone_verification_use_case_provider = providers.Factory(
-        SubmitPhoneVerificationUseCase,
-        user_repo=user_repository_provider,
-        cache_client=cache_client_provider,
     )
 
     # Admin management use cases

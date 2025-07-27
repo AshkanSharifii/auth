@@ -36,6 +36,9 @@ async def create_super_admin():
             print("ℹ️ Super admin already exists!")
             print("📧 Email: admin@postino.com")
             print("🔒 Password: SuperAdmin123!")
+            print("🔐 Authentication Methods:")
+            print("   1. Email + Password")
+            print("   2. Email + OTP")
             await conn.close()
             return
 
@@ -46,17 +49,17 @@ async def create_super_admin():
         user_id = uuid.uuid4()
         insert_query = """
             INSERT INTO "User" (
-                id, phone_number, email, name, family, hashed_password, 
+                id, email, name, family, hashed_password, 
                 position, personal_code, role_id, is_verified, 
-                email_verified, phone_number_verified, is_active
+                email_verified, phone_number_verified, is_active,
+                phone_number
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         """
 
         await conn.execute(
             insert_query,
             user_id,  # id
-            "+1234567890",  # phone_number
-            "admin@postino.com",  # email
+            "admin@postino.com",  # email (primary authentication)
             "Super",  # name
             "Admin",  # family
             hashed_password,  # hashed_password
@@ -65,15 +68,27 @@ async def create_super_admin():
             role_id,  # role_id
             True,  # is_verified
             True,  # email_verified
-            True,  # phone_number_verified
-            True  # is_active
+            False,  # phone_number_verified (no phone number)
+            True,  # is_active
+            None  # phone_number (optional)
         )
 
         print("🎉 Super admin created successfully!")
         print("📧 Email: admin@postino.com")
         print("🔒 Password: SuperAdmin123!")
-        print("📱 Phone: +1234567890")
+        print("📱 Phone: Not provided (optional)")
         print("🆔 Personal Code: SA001")
+        print()
+        print("🔐 Available Authentication Methods:")
+        print("   1. Email + Password Login:")
+        print("      POST /auth/login")
+        print("      { \"email\": \"admin@postino.com\", \"password\": \"SuperAdmin123!\" }")
+        print()
+        print("   2. Email + OTP Login:")
+        print("      Step 1: POST /auth/otp/send")
+        print("      { \"email\": \"admin@postino.com\" }")
+        print("      Step 2: POST /auth/otp/verify")
+        print("      { \"email\": \"admin@postino.com\", \"code\": \"1234\" }")
 
         await conn.close()
 

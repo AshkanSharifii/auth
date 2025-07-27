@@ -15,12 +15,17 @@ router = APIRouter()
 @router.get("/me", response_model=UserMeDTO)
 @inject
 async def get_user_me(user_data: tuple = Depends(get_current_user)):
+    """
+    Get current user profile information.
+
+    Returns user details including optional phone number.
+    """
     user, role = user_data
     return UserMeDTO(
         name=user.name,
         family=user.family,
-        phone_number=user.phone_number,
         email=user.email,
+        phone_number=user.phone_number,  # Optional field
         position=user.position,
         personal_code=user.personal_code,
         id=user.id,
@@ -48,6 +53,8 @@ async def get_my_login_history(
 ):
     """
     Get current user's login history.
+
+    Shows both password and OTP login attempts.
     """
     try:
         user, role = user_data
