@@ -13,7 +13,7 @@ class AsyncNotifyUser(INotifyUser):
     Email-only implementation of the INotifyUser interface.
 
     This class sends email notifications to users via an external notification service.
-    Simplified for email-only OTP delivery system.
+    Supports both OTP and password reset email notifications.
     """
 
     def __init__(self):
@@ -67,3 +67,54 @@ class AsyncNotifyUser(INotifyUser):
         except Exception as e:
             # Catch any other unexpected errors
             raise NotifyUserError(f"Unexpected error occurred while sending email: {str(e)}")
+
+    @override
+    async def send_password_reset_email(self, email: str, otp: str, user_name: str = None):
+        """
+        Sends a password reset code via email to the specified email address.
+
+        Args:
+            email (str): The recipient's email address.
+            otp (str): The password reset code to send.
+            user_name (str, optional): The user's name for email personalization.
+
+        Returns:
+            httpx.Response: The HTTP response returned by the email service.
+
+        Raises:
+            NotifyUserError: If there is a network error, a non-successful HTTP status,
+                             or any unexpected issue during the request.
+        """
+        payload = {
+            "email": email,
+            "otp": otp,
+            "subject": "Password Reset Code - Postino",
+            "template": "password_reset",
+            "sender_name": settings.EMAIL_FROM_NAME,
+            "sender_email": settings.EMAIL_FROM_ADDRESS,
+            "user_name": user_name or "User"  # Fallback if no name provided
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=settings.EMAIL_SERVICE_TIMEOUT) as client:
+                response = await client.post(
+                    f"{self.__notification_service_url}/email/send/password-reset",
+                    json=payload,
+                    headers={
+                        "Content-Type": "application/json",
+                        "User-Agent": "Postino-Auth-Service/1.0"
+                    }
+                )
+                # Check for HTTP errors (4xx, 5xx)
+                response.raise_for_status()
+                return response
+
+        except httpx.RequestError as e:
+            # Catch network-related errors (e.g., connection issues, timeouts)
+            raise NotifyUserError(f"Network error while sending password reset email: {str(e)}")
+        except httpx.HTTPStatusError as e:
+            # Catch HTTP errors (non-2xx responses)
+            raise NotifyUserError(f"Email service returned an error: HTTP {e.response.status_code}")
+        except Exception as e:
+            # Catch any other unexpected errors
+            raise NotifyUserError(f"Unexpected error occurred while sending password reset email: {str(e)}")

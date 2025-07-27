@@ -21,6 +21,12 @@ from src.application.use_cases.login_history_use_case import (
     GetLoginHistoryUseCase,
     GetMyLoginHistoryUseCase
 )
+from src.application.use_cases.forgot_password_use_cases import (
+    ForgotPasswordSendCodeUseCase,
+    ForgotPasswordVerifyCodeUseCase,
+    ResetPasswordUseCase,
+    ResendPasswordResetCodeUseCase
+)
 
 from src.infrastructure.access_token.pyjwt_access_token import PyJWTAccessToken
 from src.infrastructure.cache_client.redis_client import RedisClient
@@ -35,7 +41,7 @@ from src.infrastructure.repository.login_history_repo import LoginHistoryReposit
 class Container(containers.DeclarativeContainer):
     """
     Complete dependency injection container for email-only authentication system.
-    Includes all use cases with full functionality.
+    Includes all use cases with full functionality including forgot password.
     """
 
     wiring_config = containers.WiringConfiguration(
@@ -123,6 +129,33 @@ class Container(containers.DeclarativeContainer):
         user_repo=user_repository_provider,
         access_token=access_token_provider,
         role_repo=role_repository_provider,
+    )
+
+    # Forgot password use cases
+    forgot_password_send_code_use_case_provider = providers.Factory(
+        ForgotPasswordSendCodeUseCase,
+        user_repo=user_repository_provider,
+        cache_client=cache_client_provider,
+        notify_user=notify_user_provider,
+    )
+
+    forgot_password_verify_code_use_case_provider = providers.Factory(
+        ForgotPasswordVerifyCodeUseCase,
+        user_repo=user_repository_provider,
+        cache_client=cache_client_provider,
+    )
+
+    reset_password_use_case_provider = providers.Factory(
+        ResetPasswordUseCase,
+        user_repo=user_repository_provider,
+        cache_client=cache_client_provider,
+    )
+
+    resend_password_reset_code_use_case_provider = providers.Factory(
+        ResendPasswordResetCodeUseCase,
+        user_repo=user_repository_provider,
+        cache_client=cache_client_provider,
+        notify_user=notify_user_provider,
     )
 
     # Admin management use cases
